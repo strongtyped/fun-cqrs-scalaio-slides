@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Functional Event Sourced Apps with Fun.CQRS</title>
+    <meta charset="utf-8">
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body { font-family: 'Droid Serif'; }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+        color: #455A64;
+      }
+
+      body {
+        font-family: 'Droid Serif';
+      }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: 400;
+        margin-bottom: 0;
+      }
+      .remark-slide-content h1 { font-size: 3em; }
+      .remark-slide-content h2 { font-size: 2em; }
+      .remark-slide-content h3 { font-size: 1.6em; }
+      .footnote {
+        position: absolute;
+        bottom: 3em;
+      }
+      li p { line-height: 1.25em; }
+      .red { color: #fa0000; }
+      .large { font-size: 2em; }
+      a, a > code {
+        color: rgb(249, 38, 114);
+        text-decoration: none;
+      }
+      code {
+        background: #e7e8e2;
+        border-radius: 5px;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+      .remark-code-line-highlighted     { background-color: #373832; }
+      .pull-left {
+        float: left;
+        width: 47%;
+      }
+      .pull-right {
+        float: right;
+        width: 47%;
+      }
+      .pull-right ~ p {
+        clear: both;
+      }
+      #slideshow .slide .content code {
+        font-size: 0.8em;
+      }
+      #slideshow .slide .content pre code {
+        font-size: 0.9em;
+        padding: 15px;
+      }
+      .inverse {
+        background: #455A64;
+        color: #FFFFFF;
+        text-shadow: 0 0 20px #333;
+      }
+      .inverse h1, .inverse h2 {
+        color: #f3f3f3;
+        line-height: 0.8em;
+      }
+
+      /* Slide-specific styling */
+      #slide-inverse .footnote {
+        bottom: 12px;
+        left: 20px;
+      }
+      #slide-how .slides {
+        font-size: 0.9em;
+        position: absolute;
+        top:  151px;
+        right: 140px;
+      }
+      #slide-how .slides h3 {
+        margin-top: 0.2em;
+      }
+      #slide-how .slides .first, #slide-how .slides .second {
+        padding: 1px 20px;
+        height: 90px;
+        width: 120px;
+        -moz-box-shadow: 0 0 10px #777;
+        -webkit-box-shadow: 0 0 10px #777;
+        box-shadow: 0 0 10px #777;
+      }
+      #slide-how .slides .first {
+        background: #fff;
+        position: absolute;
+        top: 20%;
+        left: 20%;
+        z-index: 1;
+      }
+      #slide-how .slides .second {
+        position: relative;
+        background: #fff;
+        z-index: 0;
+      }
+
+      /* Two-column layout */
+      .left-column {
+        color: #777;
+        width: 25%;
+        height: 92%;
+        float: left;
+      }
+        .left-column h2:last-of-type, .left-column h3:last-child {
+          color: #000;
+        }
+      .right-column {
+        width: 70%;
+        float: right;
+        padding-top: 1em;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+
+      b, strong { color:  #303F9F; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+name: inverse
+layout: true
+class: center, top, inverse
+
+---
+# Functional Event Sourced Apps with Fun.CQRS
+  
+renato@strongtyped.io  
+
+www.funcqrs.io
+
+@renatocaval  / @strongtyped  
+
+---
+layout: false
+.left-column[ # Agenda ]
+.right-column[ 
+1. Introduction to CQRS and Event Sourcing  
+
+2. Fun.CQRS, highlevel feature overview  
+
+3. Write model design (configuring and testing)  
+
+4. Read model design (configuring and testing)
+]
+
+---
+class: left, top
+# What is CQRS? 
+
+## Command Query Responsibility Segregation
+
+  - two models:  
+    **Command** or **Write** model  
+    **Query** or **Read** model  
+
+  - on the **Write Side** we receive **Commands** and emit **Events**  
+
+  - on the **Read Side** we consume **Events** and generate **Views**
+---
+layout: false
+
+# What is Event Sourcing?  
+
+- **Event Sourcing** happens when you store every single event generated in your system.  
+
+- Very often used in combination with **CQRS**.  
+
+- Together they give us a lot of power.  
+
+- The **Event Log** is the single source of truth, nothing else matters...
+
+---
+## And than there is this **Aggregate** thing that nobody understands...
+
+  - It's a DDD concept defining a **Consistency Boundary**  
+
+  - In **CQRS** it maps to your **Command Model**
+
+  - In **Event Sourced** it's 'degraded' to a kind of validator  
+    only the **Events** matter (more on that later) 
+
+  - An **Aggregate** (CQRS/ES ctx) represents somehow the history of past **Events**. 
+
+  - It's the **Guardian** that decides if a **Command** can be accepted or not  
+  (think **Consistency Boundary**)
+???
+It's an interpretation of past **Events**. Think of it as the Accumulator of a foldLeft over all past events.
+
+---
+# Entering Fun.CQRS
+
+- It's a minimal framework for CQRS / ES in Scala  
+
+- Tries to define an (opiniated) Functional Foundation for **CQRS**  
+  (more on that if time allows)
+
+- As of today, it has two backend implementations:  
+  `AkkaBackend` and `InMemoryBackend`
+
+- Based on `Interpreters` (no Free Monad) and some type system trickery  
+  that I'm still scared about.
+---
+
+# More Fun.CQRS
+
+- `Commands` and `Events` define a `Protocol`.
+
+- `Actions` are `Command Handlers` and `Event Handlers`.  
+
+- Together, they defined the `Behavior` of an `Aggregate`.   
+
+- And it has `Projections` to generate whatever you want from the persisted `Events`.
+
+---
+
+# Lottery Example
+(very simplified example)
+```scala
+case class Lottery(
+    id: LotteryId,
+    participants: List[String] = List(),
+    winner: Option[String] = None    
+) extends AggregateLike
+```
+
+```scala
+// Commands
+case object CreateLottery
+case class AddParticipant(name: String)
+case object Run
+```
+
+```scala
+// Events
+case class LotteryCreated(lotteryId: LotteryId)
+case class ParticipantAdded(name: String, lotteryId: LotteryId)
+case class WinnerSelected(winner: String, lotteryId: LotteryId)
+```                                            
+---
+# Lottery Behavior
+```scala
+def createLottery(lotteryId: LotteryId) = 
+  actions[Lottery]
+    .handleCommand {
+      cmd: CreateLottery => LotteryCreated(lotteryId)
+    }
+    .handleEvent {
+      evt: LotteryCreated => Lottery(id = lotteryId)
+    }
+```
+
+```scala
+def behavior(lotteryId: LotteryId): Behavior[Lottery] =
+    Behavior {
+      createLottery(lotteryId) // <1>
+    } {
+      case lottery if lottery.hasWinner => lottery.rejectAllCommands //<2>
+
+      case lottery if lottery.hasNoParticipants => // <3>
+        lottery.canNotRunWithoutParticipants ++
+          lottery.acceptParticipants
+
+      case lottery if lottery.hasParticipants => // <4>
+        lottery.rejectDoubleBooking ++
+          lottery.acceptParticipants ++
+          lottery.removingParticipants ++
+          lottery.runTheLottery
+    }
+```
+---
+
+
+class: center, middle, inverse
+
+  #Fun.CQRS App
+
+---
+class: center, middle, inverse
+
+  The following slides can be analysed later.  
+  It's a trial to define the basic functions of a CQRS application  
+  in a very informal way.
+
+---
+
+# Functional CQRS Foundation - part 1
+
+```scala
+// the seed
+Command => Seq[Event]
+Event => Aggregate
+```
+
+```scala
+// updates
+(Aggregate, Command) => Seq[Event]
+(Aggregate, Event) => Aggregate
+```
+---
+# Functional CQRS Foundation - part 2
+
+```scala
+// the seed - Option[Aggregate] = None
+// updates  - Option[Aggregate] = Some[Aggregate] 
+
+(Option[Aggregate], Command) => Seq[Event]  
+
+// note that the returned Option[Aggregate] will always be a Some[Aggregate]
+(Option[Aggregate], Event) => Option[Aggregate]
+```
+
+
+---
+
+# Functional CQRS Foundation - part 3
+
+  but because a command can be rejected...
+
+```scala
+(Option[Aggregate], Command) => F[Seq[Event]]
+(Option[Aggregate], Event) => F[Option[Aggregate]]
+```  
+
+Where __F[_]__ is a type constructor for something that can represent failed computations.  
+(eg: Future, Try, left bounded Either, scalaz.Validation, cats.Validated, cats.Xor)
+
+---
+# Functional CQRS Foundation - part 5
+
+Given
+
+```scala
+// F[_] omitted
+(Option[Aggregate], Command) => Seq[Event]  
+(Option[Aggregate], Event) => Option[Aggregate]
+```  
+
+Than...
+```scala
+// F[_] omitted
+(Seq[Event], Command) => Seq[Event]
+(Seq[Event], Event) => Seq[Event]
+```
+source: http://verraes.net/2014/05/functional-foundation-for-cqrs-event-sourcing/
+    </textarea>
+    <script src="out/remark.min.js">
+  </script>
+  <script>
+    var slideshow = remark.create({
+      ratio: '4:3',
+      //ratio: '16:9',
+      highlightLanguage: 'scala',
+      // Plausible style for blue background:
+      highlightStyle: 'github'
+      });
+  </script>
+  </body>
+</html>
