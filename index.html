@@ -37,6 +37,11 @@
         color: rgb(249, 38, 114);
         text-decoration: none;
       }
+
+      .inverse a, .inverse  a > code {
+        color: #ECECEC;
+        text-decoration: none;
+      }
       code {
         background: #e7e8e2;
         border-radius: 5px;
@@ -131,16 +136,15 @@
 
 name: inverse
 layout: true
-class: center, top, inverse
+class: center, middle, inverse
 
 ---
-# Functional Event Sourced Apps with Fun.CQRS
+# Functional Event Sourced Apps 
+#with Fun.CQRS  
   
-renato@strongtyped.io  
+[strongtyped/fun-cqrs-scalaio](https://github.com/strongtyped/fun-cqrs-scalaio/)  
 
-www.funcqrs.io
-
-@renatocaval  / @strongtyped  
+[strongtyped/fun-cqrs-scalaio-slides](https://github.com/strongtyped/fun-cqrs-scalaio-slides/)
 
 ---
 layout: false
@@ -199,17 +203,21 @@ layout: false
 It's an interpretation of past **Events**. Think of it as the Accumulator of a foldLeft over all past events.
 
 ---
+
+# Kind of big picture of it
+<img src="images/diagram.png" width="768" />
+
+---
 # Entering Fun.CQRS
 
 - It's a minimal framework for CQRS / ES in Scala  
 
-- Tries to define an (opiniated) Functional Foundation for **CQRS**  
-  (more on that if time allows)
+- Tries to define an opiniated Functional Foundation for **CQRS**  
 
 - As of today, it has two backend implementations:  
-  `AkkaBackend` and `InMemoryBackend`
+  **AkkaBackend** and **InMemoryBackend**
 
-- Based on `Interpreters` (no Free Monad) and some type system trickery  
+- Based on **Interpreters** (no Free Monad) and some type system trickery  
   that I'm still scared about.
 ---
 
@@ -225,73 +233,135 @@ It's an interpretation of past **Events**. Think of it as the Accumulator of a f
 
 ---
 
-# Lottery Example
-(very simplified example)
-```scala
-case class Lottery(
-    id: LotteryId,
-    participants: List[String] = List(),
-    winner: Option[String] = None    
-) extends AggregateLike
-```
-
-```scala
-// Commands
-case object CreateLottery
-case class AddParticipant(name: String)
-case object Run
-```
-
-```scala
-// Events
-case class LotteryCreated(lotteryId: LotteryId)
-case class ParticipantAdded(name: String, lotteryId: LotteryId)
-case class WinnerSelected(winner: String, lotteryId: LotteryId)
-```                                            
----
-# Lottery Behavior
-```scala
-def createLottery(lotteryId: LotteryId) = 
-  actions[Lottery]
-    .handleCommand {
-      cmd: CreateLottery => LotteryCreated(lotteryId)
-    }
-    .handleEvent {
-      evt: LotteryCreated => Lottery(id = lotteryId)
-    }
-```
-
-```scala
-def behavior(lotteryId: LotteryId): Behavior[Lottery] =
-    Behavior {
-      createLottery(lotteryId) // <1>
-    } {
-      case lottery if lottery.hasWinner => lottery.rejectAllCommands //<2>
-
-      case lottery if lottery.hasNoParticipants => // <3>
-        lottery.canNotRunWithoutParticipants ++
-          lottery.acceptParticipants
-
-      case lottery if lottery.hasParticipants => // <4>
-        lottery.rejectDoubleBooking ++
-          lottery.acceptParticipants ++
-          lottery.removingParticipants ++
-          lottery.runTheLottery
-    }
-```
----
-
-
 class: center, middle, inverse
 
-  #Fun.CQRS App
+  #Short Demo before the main course
 
 ---
+
+class: center, middle, inverse
+  #Order App    
+  
+  A classical shopping cart application.  
+
+  <a href="https://github.com/strongtyped/fun-cqrs-scalaio/" target="_blank">
+  strongtyped/fun-cqrs-scalaio
+  </a>  
+
+---
+
+  # Before we start...
+
+  ```bash
+  git clone git@github.com:strongtyped/fun-cqrs-scalaio.git
+  # Please, don't tell me you didn't clone it yet
+
+  cd fun-cqrs-scalaio
+
+  # start sbt
+  sbt
+  ```
+  ### In sbt prompt
+  ```sbt
+  groll initial
+  ~test
+  ```
+  
+
+  ### Open `Order.scala` and `OrderTest.scala`
+---
+
+#Step 1
+
+  Implement 'factory actions' and 'EmptyOrder' behavior  
+  
+  ###`EmptyOrder`  
+  First state once we initialize the **Order Aggregate**. It has not items.  
+  
+  - we call the 'factory actions' the **Command** and **Event Handlers** needed to 
+  bootstrap the **Aggregate** (head to Order companion object).  
+
+  - 'EmptyOrder' behavior must be implemented in `EmptyOrder.possibleActions`  
+  Accepts AddItem and CancelOrder commands.  
+  Requires interaction with the 'fake' `StockService`
+
+---
+
+#Step 2
+
+  ### `NonEmptyOrder`  
+  
+  A non-empty order has at least one item.  
+  
+  - Head to `NonEmptyOrder.possibleActions`  
+
+  - `AddItem` and `RemoveItem` items must interact with `StockService`  
+
+  - `CancelOrder` as well  
+
+  - `PayOrder` must interact with `BillingService`
+
+  If all items are removed, `NonEmptyOrder` transition back to `EmptyOrder` state.
+
+---
+
+ #Step 3
+  
+  `PayedOrder` and `CancelledOrder` behavior
+
+  `PayedOrder` and `CancelledOrder` cannot accept any new commands and therefore is considered to have reached its end-of-life.  How can we deal with that?
+
+  tip: use `rejectCommand` method. Watch-out the kind of function it accepts!
+
+---
+
+#Step 4
+  
+  Up to now we have only worked on the **Command Side**.  
+
+  A **Projection** is basically a `PartialFunction[DomainEvent, Future[Unit]].`
+
+  Often used to generate **Views**, but can also be used for intra **Aggregate** communication.
+
+  Head to `OrderDetailsProjection`
+
+---
+
+#Step 5
+
+  How to initialize an Order using the `AddItem` command?  
+  Can we emit a list of Events List(OrderWasCreated, ItemWasAdded) in the 'factory actions'?
+
+  Let's break the tests and see how we can fix it.   
+
+  Pick one of the test and comment out the 'creation' commad.
+
+  ```scala
+  // orderRef ! CreateOrder
+  ```
+
+
+---
+
+
+
+class: middle, center, inverse
+# Thanks!
+renato@strongtyped.io  
+
+[www.funcqrs.io](http://www.funcqrs.io)
+
+[@renatocaval](http://twitter.com/renatocaval)  / [@strongtyped](http://twitter.com/strongtyped)
+
+---
+
 class: center, middle, inverse
 
   The following slides can be analysed later.  
   It's a trial to define the basic functions of a CQRS application  
-  in a very informal way.
+  in a very informal way.  
+
+  We can discuss it later around a beer! ;-)
 
 ---
 
@@ -354,6 +424,8 @@ Than...
 (Seq[Event], Event) => Seq[Event]
 ```
 source: http://verraes.net/2014/05/functional-foundation-for-cqrs-event-sourcing/
+
+
     </textarea>
     <script src="js/remark.min.js">
   </script>
